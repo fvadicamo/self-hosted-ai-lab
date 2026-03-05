@@ -1,22 +1,66 @@
 # Self-hosted AI setup
 
-> Full-stack setup for a self-hosted AI automation server: provisioning, hardening, Docker, reverse proxy, n8n, OpenClaw. From zero to production-ready.
+> Production-ready VPS for AI automation: hardened infrastructure, n8n workflows, OpenClaw AI gateway. From zero to running in under an hour.
 
-**LLM-executable**: every runbook is designed to be followed step-by-step by [Claude Code](https://claude.ai/code) or any AI coding assistant. Give a runbook to your assistant and it will execute the setup for you.
+**LLM-executable**: every runbook follows a Precondition / Action / Verify pattern designed for [Claude Code](https://claude.ai/code) or any AI coding assistant. Give a runbook to your assistant and it will execute the setup for you. Also works perfectly fine as a guide for humans.
 
-Also works perfectly fine as a guide for humans.
+## What you build
 
-## What you get
+```
+                  ┌─────────────────────────────────────────┐
+                  │              Your VPS                    │
+                  │                                         │
+Internet ──443──► │  Caddy (reverse proxy, auto-HTTPS)      │
+                  │    └──► n8n (AI workflows, webhooks)     │
+                  │            └──► PostgreSQL               │
+                  │                                         │
+SSH tunnel ─────► │  OpenClaw (AI gateway, localhost only)   │
+                  │    └──► Cloud LLM APIs                  │
+                  │                                         │
+                  │  ┌─── Security ───────────────────────┐ │
+                  │  │ UFW + provider firewall (dual layer)│ │
+                  │  │ Fail2Ban, SSH hardening, swap       │ │
+                  │  │ Monitoring, automated backups       │ │
+                  │  └────────────────────────────────────┘ │
+                  └─────────────────────────────────────────┘
+```
 
-A hardened Ubuntu server running:
+**n8n** is your AI automation platform: build workflows with 400+ integrations, AI Agent nodes, text classifiers, and LLM chains. Connect to OpenAI, Anthropic, or any API to automate tasks that would take hours manually.
 
-- **Docker** with organized project structure and log rotation
-- **Caddy** as reverse proxy with automatic HTTPS
-- **n8n** for workflow automation (with PostgreSQL, encrypted credentials)
-- **OpenClaw** as AI gateway (multi-instance support)
-- **Fail2Ban**, **UFW**, swap, and SSH hardening out of the box
-- **Monitoring** via external services or self-hosted Uptime Kuma
-- **Automated backups** with restic, PostgreSQL dumps, and restore verification
+**OpenClaw** is your personal AI gateway: a unified interface to interact with cloud LLM providers (Anthropic, OpenAI, Google, etc.) from a single dashboard, with per-instance isolation and SSH-only access.
+
+## Who is this for
+
+- You want a **cloud VPS** to run AI-powered automation and tools
+- You want **production-grade infrastructure**: hardened SSH, firewall, monitoring, automated backups
+- You use **cloud LLM APIs** (Anthropic, OpenAI, etc.) and want a secure server to run tools on top of them
+- You want something you can hand to an AI assistant and say "set this up for me"
+
+## What this is NOT
+
+- **Not a local LLM hosting guide.** This guide uses cloud APIs via OpenClaw and n8n, not local models. Running Ollama or similar on a small VPS is possible but limited by CPU-only performance. If you want a full local AI stack (Ollama + Open WebUI + vector database), see [Going further](#going-further).
+- **Not a homelab guide.** This targets cloud VPS instances, not bare metal or Raspberry Pi setups.
+
+## Cost estimate
+
+On Hetzner Cloud (ARM64 instances):
+
+| Instance | Specs | Monthly cost | Good for |
+|---|---|---|---|
+| CAX11 | 2 vCPU, 4 GB, 40 GB | ~EUR 4 | n8n only |
+| **CAX21** | **4 vCPU, 8 GB, 80 GB** | **~EUR 7** | **Full stack (recommended)** |
+| CAX31 | 8 vCPU, 16 GB, 160 GB | ~EUR 14 | Heavy workloads |
+
+New Hetzner accounts get EUR 20 credit with [this referral link](https://hetzner.cloud/?ref=7UcZyMnU7io5) (disclosure: referral gives credit to both parties), enough for 2-3 months on a CAX21.
+
+Domain name: EUR 1-10/year depending on TLD. Required for HTTPS.
+
+## Requirements
+
+- A cloud server with **Ubuntu 24.04 LTS** (any provider with cloud-init support)
+- **SSH key pair** (ed25519 recommended)
+- A **domain name** (for HTTPS via Caddy)
+- **API keys** for your LLM provider (for OpenClaw)
 
 ## Quick start
 
@@ -29,13 +73,13 @@ A hardened Ubuntu server running:
 | 02 | [Hardening](runbooks/02-hardening.md) | SSH drop-in, Fail2Ban, UFW, swap, dual-layer firewall |
 | 03 | [Docker](runbooks/03-docker.md) | Docker CE, Compose, log rotation, lazydocker |
 | 04 | [Caddy](runbooks/04-caddy.md) | Reverse proxy, automatic HTTPS, Caddyfile |
-| 05 | [n8n](runbooks/05-n8n.md) | n8n + PostgreSQL, encryption key, proxy config |
+| 05 | [n8n](runbooks/05-n8n.md) | n8n + PostgreSQL, encryption key, AI capabilities |
 | 06 | [OpenClaw](runbooks/06-openclaw.md) | AI gateway, multi-instance, Tailscale alternative |
 | 07 | [Monitoring](runbooks/07-monitoring.md) | Uptime checks, alerting, Uptime Kuma |
 | 08 | [Backups](runbooks/08-backups.md) | Automated restic, pg_dump, restore verification |
 | 09 | [Maintenance](runbooks/09-maintenance.md) | Updates, SSH key rotation, troubleshooting |
 
-Each runbook is self-contained. You can stop at any step and have a working server.
+Each runbook is self-contained. You can stop at any step and have a working server. Runbooks 01-04 give you a hardened server with Docker. Add 05 for automation, 06 for AI gateway, 07-09 for operational maturity.
 
 ## Runbook format
 
@@ -71,8 +115,6 @@ Currently documented:
 
 - [Hetzner Cloud](providers/hetzner.md) - recommended for price/performance ratio
 
-> Hetzner offers ARM64 instances (Ampere) at lower cost than x86 with equivalent performance. New accounts get EUR 20 credit with [this referral link](https://hetzner.cloud/?ref=7UcZyMnU7io5) (disclosure: referral gives credit to both parties).
-
 ## Conventions
 
 | Convention | Value |
@@ -86,13 +128,6 @@ Currently documented:
 | Placeholders | `<UPPER_CASE>` format throughout |
 | OpenClaw naming | `oc-<name>` prefix, ports `*789` (18789, 19789, ...) |
 
-## Requirements
-
-- A cloud server with Ubuntu 24.04 LTS
-- SSH key pair (ed25519 recommended)
-- A domain name (for HTTPS via Caddy)
-- API keys for your LLM provider (for OpenClaw)
-
 ## For AI assistants
 
 If you are an AI coding assistant executing these runbooks:
@@ -104,6 +139,17 @@ If you are an AI coding assistant executing these runbooks:
 - Placeholders (`<VALUE>`) must be resolved before execution
 - Never skip verify steps, even if the command appeared to succeed
 - After completing a runbook, report which steps succeeded and which need attention
+
+## Going further
+
+This guide focuses on cloud API-based AI tools. If you want to expand your setup:
+
+- **Local LLMs on your VPS**: [Ollama](https://ollama.com/) can run small models (Phi-3, Gemma) on CPU. Performance is limited without a GPU, but usable for n8n automation workflows.
+- **Chat interface**: [Open WebUI](https://github.com/open-webui/open-webui) provides a ChatGPT-like interface that connects to Ollama (local) or cloud APIs (OpenAI, Anthropic).
+- **Full local AI stack**: n8n's official [Self-hosted AI Starter Kit](https://github.com/n8n-io/self-hosted-ai-starter-kit) bundles n8n + Ollama + Qdrant (vector database) in a single Docker Compose. It runs on top of the infrastructure from runbooks 01-04 of this guide.
+- **Vector database for RAG**: [Qdrant](https://qdrant.tech/) or [ChromaDB](https://www.trychroma.com/) for retrieval-augmented generation workflows in n8n.
+
+The infrastructure you build with this guide (hardened server, Docker, Caddy, monitoring, backups) is the foundation for any of these expansions.
 
 ## License
 
