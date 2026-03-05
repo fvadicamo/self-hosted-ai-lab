@@ -1,28 +1,30 @@
 # Self-hosted AI lab
 
-> Production-ready VPS for AI automation with n8n workflows and OpenClaw AI gateway. Hardened infrastructure and AI-executable runbooks.
+> Production-ready VPS for AI automation: hardened infrastructure, n8n workflows and OpenClaw AI gateway. Includes LLM-executable runbooks for AI assistants.
+
+Run your own AI automation server on a EUR 7/month VPS with hardened infrastructure and multi-instance OpenClaw support.
 
 Every runbook follows a Precondition / Action / Verify pattern designed for [Claude Code](https://claude.ai/code) or any AI coding assistant. Give a runbook to your assistant and it will execute the setup for you. Also works perfectly fine as a guide for humans.
 
 ## What you build
 
 ```
-                  ┌─────────────────────────────────────────┐
-                  │              Your VPS                    │
-                  │                                         │
-Internet ──443──► │  Caddy (reverse proxy, auto-HTTPS)      │
-                  │    └──► n8n (AI workflows, webhooks)     │
-                  │            └──► PostgreSQL               │
-                  │                                         │
-SSH tunnel ─────► │  OpenClaw (AI gateway, localhost only)   │
-                  │    └──► Cloud LLM APIs                  │
-                  │                                         │
-                  │  ┌─── Security ───────────────────────┐ │
-                  │  │ UFW + provider firewall (dual layer)│ │
-                  │  │ Fail2Ban, SSH hardening, swap       │ │
-                  │  │ Monitoring, automated backups       │ │
-                  │  └────────────────────────────────────┘ │
-                  └─────────────────────────────────────────┘
+                  ┌─────────────────────────────────────────────┐
+                  │                 Your VPS                     │
+                  │                                             │
+Internet ──443──► │  Caddy (reverse proxy, auto-HTTPS)          │
+                  │    └──► n8n (AI workflows, webhooks)         │
+                  │            └──► PostgreSQL                   │
+                  │                                             │
+SSH tunnel ─────► │  OpenClaw (multi-instance AI gateway)        │
+                  │    └──► Cloud LLM APIs                      │
+                  │                                             │
+                  │  ┌─── Security ───────────────────────────┐ │
+                  │  │ UFW + provider firewall (dual layer)    │ │
+                  │  │ Fail2Ban, SSH hardening, swap           │ │
+                  │  │ Monitoring, automated backups           │ │
+                  │  └─────────────────────────────────────────┘ │
+                  └─────────────────────────────────────────────┘
 ```
 
 **n8n** is your AI automation platform: build workflows with 400+ integrations, AI Agent nodes, text classifiers, and LLM chains. Connect to OpenAI, Anthropic, or any API to automate tasks that would take hours manually.
