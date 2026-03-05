@@ -1,0 +1,125 @@
+#cloud-config
+
+# ============================================================
+# Self-hosted AI setup - Ubuntu 24.04 LTS
+# Replace all <PLACEHOLDER> values before use
+# ============================================================
+
+hostname: <HOSTNAME>
+# fqdn: <HOSTNAME>.example.com
+# Uncomment fqdn only if you have a DNS A record pointing to this server's IP
+manage_etc_hosts: true
+
+timezone: Europe/Rome
+
+package_update: true
+package_upgrade: true
+package_reboot_if_required: false  # managed by power_state
+
+packages:
+  # Required for Docker HTTPS repo
+  - apt-transport-https
+  - ca-certificates
+  - gnupg
+  # Base utilities
+  - curl
+  - git
+  - htop
+  - wget
+  - ufw
+  - jq
+  - iputils-ping
+  # Python
+  - python3-pip
+  - python3-venv
+  # Security
+  - fail2ban
+  - unattended-upgrades
+
+users:
+  - name: <USER>
+    groups: [sudo]
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    lock_passwd: true
+    ssh_authorized_keys:
+      - <SSH_PUBLIC_KEY>
+
+write_files:
+  # SSH hardening drop-in (loaded last due to 99- prefix)
+  - path: /etc/ssh/sshd_config.d/99-hardening.conf
+    owner: root:root
+    permissions: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      KbdInteractiveAuthentication no
+      AllowUsers <USER>
+      MaxAuthTries 3
+      LoginGraceTime 30
+      AuthorizedKeysFile .ssh/authorized_keys
+
+  # Fail2Ban
+  - path: /etc/fail2ban/jail.local
+    owner: root:root
+    permissions: '0644'
+    content: |
+      [DEFAULT]
+      bantime  = 3600
+      findtime = 600
+      maxretry = 3
+      mode     = normal
+      backend  = systemd
+
+      [sshd]
+      enabled = true
+      port    = 22
+      logpath = %(sshd_log)s
+
+  # Automatic security updates
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root:root
+    permissions: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+runcmd:
+  # --- Docker (official install) ---
+  # Codename hardcoded to 'noble' (Ubuntu 24.04 LTS)
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  - systemctl enable docker
+  - systemctl start docker
+  # Add user to docker group AFTER install (group doesn't exist before)
+  - usermod -aG docker <USER>
+
+  # --- lazydocker ---
+  - curl -fsSL https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | DIR=/usr/local/bin bash
+
+  # --- Docker root directory with correct permissions ---
+  - mkdir -p /srv/docker
+  - chown root:docker /srv/docker
+  - chmod 2770 /srv/docker
+
+  # --- UFW (second layer - first layer is provider firewall) ---
+  - ufw default deny incoming
+  - ufw default allow outgoing
+  - ufw allow 22/tcp comment 'SSH'
+  - ufw allow 80/tcp comment 'HTTP'
+  - ufw allow 443/tcp comment 'HTTPS'
+  - ufw --force enable
+
+  # --- Fail2Ban ---
+  - systemctl enable fail2ban
+  - systemctl start fail2ban
+
+power_state:
+  mode: reboot
+  delay: now
+  timeout: 30
+  message: "Provisioning complete - rebooting"
+  condition: true
