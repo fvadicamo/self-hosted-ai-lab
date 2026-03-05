@@ -213,10 +213,16 @@ EOF
 
 ### Provisioning script
 
-Copy `templates/openclaw-provision.sh` to the server:
+Copy `templates/openclaw-provision.sh` to the server. From your **local machine** (where you cloned this repo):
 
 ```bash
-sudo tee /usr/local/bin/openclaw-provision.sh > /dev/null < templates/openclaw-provision.sh
+scp templates/openclaw-provision.sh <USER>@<IP_ADDRESS>:/tmp/
+```
+
+Then on the **server**:
+
+```bash
+sudo mv /tmp/openclaw-provision.sh /usr/local/bin/openclaw-provision.sh
 sudo chmod +x /usr/local/bin/openclaw-provision.sh
 ```
 

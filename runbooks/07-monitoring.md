@@ -2,6 +2,16 @@
 
 Uptime monitoring and alerting. Know when your server or services go down before your users do.
 
+## Placeholders
+
+| Placeholder | Description | Example |
+|---|---|---|
+| `<USER>` | Admin username | `deploy` |
+| `<IP_ADDRESS>` | Server IPv4 | `203.0.113.10` |
+| `<DOMAIN_N8N>` | Domain for n8n | `n8n.example.com` |
+| `<DOMAIN_UPTIME>` | Domain for Uptime Kuma (optional) | `status.example.com` |
+| `<OC_PORT>` | OpenClaw instance port | `18789` |
+
 ## Approach
 
 You need monitoring that works **when the server is down**. A monitoring tool running on the same server it monitors is blind to the most critical failure: the server itself being unreachable.
