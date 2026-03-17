@@ -101,9 +101,7 @@ openclaw onboard
 # Follow the wizard: select provider, enter API key
 ```
 
-After onboarding you can exit this session. Steps 5A, 5C, and 6 run as admin. Steps 5B and 7 require you to SSH back as `oc-<OC_NAME>`.
-
-Verify config permissions (still in the SSH session as oc-<OC_NAME>):
+Before exiting, verify config permissions (still in the SSH session as `oc-<OC_NAME>`):
 
 ```bash
 ls -la ~/.openclaw/openclaw.json
@@ -114,6 +112,8 @@ Verify: permissions are `-rw-------` (600). If not:
 ```bash
 chmod 600 ~/.openclaw/openclaw.json
 ```
+
+After onboarding you can exit this session. Steps 5A, 5C, and 6 run as admin. Steps 5B and 7 require you to SSH back as `oc-<OC_NAME>`.
 
 ### Step 5 - Install skill dependencies
 
@@ -288,11 +288,6 @@ OpenClaw manages its own service file via CLI. You must run this step **as the i
 ```bash
 ssh oc-<OC_NAME>@<IP_ADDRESS>
 export PATH="$HOME/.local/bin:$PATH"
-```
-
-Then:
-
-```bash
 openclaw gateway install
 ```
 
@@ -408,11 +403,13 @@ Then, for each instance, open a direct SSH session and complete onboarding and p
 ```bash
 # Onboard and install service — must be done via direct SSH as each user
 ssh oc-work@<IP_ADDRESS>
+export PATH="$HOME/.local/bin:$PATH"
 openclaw onboard       # interactive wizard: provider, API key, channel, skills
 openclaw-provision.sh post-onboard   # gateway install, npm deps, verify
 exit
 
 ssh oc-personal@<IP_ADDRESS>
+export PATH="$HOME/.local/bin:$PATH"
 openclaw onboard
 openclaw-provision.sh post-onboard
 exit
@@ -450,6 +447,7 @@ Run as the instance user via direct SSH:
 
 ```bash
 ssh oc-<OC_NAME>@<IP_ADDRESS>
+export PATH="$HOME/.local/bin:$PATH"
 
 # Status (shows service warnings if service file is outdated)
 openclaw gateway status
@@ -501,7 +499,7 @@ sudo openclaw-provision.sh status
 | Service file outdated after update | `openclaw gateway status` shows warnings | Run `openclaw gateway install --force` via direct SSH as instance user |
 | Port already in use | `ss -tulpn \| grep <OC_PORT>` | Kill the process: `sudo kill $(sudo lsof -t -i :<OC_PORT>)` |
 | SSH tunnel won't connect | `ssh -v -L <OC_PORT>:localhost:<OC_PORT> <USER>@<IP_ADDRESS>` | Check service is running, port 22 is accessible |
-| API key rejected | `openclaw models status` via SSH as instance user | Use `openclaw models auth paste-token --provider anthropic --profile-id anthropic:default` |
+| API key rejected | `openclaw models status` via SSH as instance user | Check profile name with `openclaw models status`, then: `openclaw models auth paste-token --provider <PROVIDER> --profile-id <PROFILE_NAME>` |
 
 ## Checklist (per instance)
 
@@ -513,7 +511,7 @@ sudo openclaw-provision.sh status
 - [ ] Global dependencies installed (ffmpeg, gh, uv) - once per server
 - [ ] Per-user dependencies installed (@steipete/summarize)
 - [ ] `openclaw doctor` shows no missing requirements for enabled skills
-- [ ] (Optional) Memory search configured with embedding provider and env file
+- [ ] (Optional) Memory search: env file created, key registered in credential store (`auth-profiles.json`), systemd drop-in in place
 - [ ] Linger enabled: `loginctl show-user oc-<OC_NAME> | grep Linger` → `Linger=yes`
 - [ ] `openclaw gateway install` run via direct SSH as instance user
 - [ ] `openclaw gateway status` shows no warnings
