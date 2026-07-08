@@ -44,6 +44,8 @@ ls -la /srv/ | grep oc-<OC_NAME>
 
 Verify: directory exists, owned by `oc-<OC_NAME>`.
 
+> Note: if the instance will use OpenClaw's Docker sandbox runtime, add the user to the `docker` group: `sudo usermod -aG docker oc-<OC_NAME>`.
+
 ### Step 2 - Install Node.js (system, once per server)
 
 Node.js is installed at the system level via NodeSource. This step runs **once per server** as your admin user — not repeated for each instance. All `oc-*` instances share the same system binary (`/usr/bin/node`).
@@ -194,40 +196,24 @@ Do not put API keys directly in service files (they are readable by any user via
 
 ##### Step B - register the key in the openclaw credential store
 
-**This is the critical step.** The env file alone is not enough: openclaw looks for API keys in its own credential store (`auth-profiles.json`), not in the process environment. Even if `OPENAI_API_KEY` is exported in the shell or in the service, it is ignored unless registered in the store.
+**This is the critical step.** The env file alone is not enough: openclaw looks for API keys in its own credential store, not in the process environment. Even if `OPENAI_API_KEY` is exported in the shell or in the service, it is ignored unless registered in the store.
 
-The official method is `paste-token`, which requires a TTY. Run it as the instance user via a direct SSH session:
+Where the store lives depends on the OpenClaw version:
+
+- **2026.6.x and later**: per-agent SQLite database (`~/.openclaw/state/openclaw.sqlite`). Do not edit it by hand — always go through the CLI (`openclaw models auth ...`, with `--agent <id>` for non-default agents).
+- **2026.5.x and earlier**: JSON file `~/.openclaw/agents/main/agent/auth-profiles.json`.
+
+Register the key with `paste-api-key`, which requires a TTY. Run it as the instance user via a direct SSH session:
 
 ```bash
 ssh oc-<OC_NAME>@<IP_ADDRESS>
 export PATH="$HOME/.local/bin:$PATH"
-openclaw models auth paste-token --provider openai
+openclaw models auth paste-api-key --provider openai
 # paste the key when prompted, then press enter
-# creates profile openai:manual (paste-token default name)
+# creates profile openai:manual (default name; override with --profile-id)
 ```
 
-**Workaround if TTY is not available** (e.g. from a script or `sudo -u`): write the profile directly into `auth-profiles.json`:
-
-```bash
-sudo -u oc-<OC_NAME> python3 - <<'EOF'
-import json, os
-path = os.path.expanduser("~/.openclaw/agents/main/agent/auth-profiles.json")
-os.makedirs(os.path.dirname(path), exist_ok=True)
-try:
-    with open(path) as f:
-        data = json.load(f)
-except FileNotFoundError:
-    data = {"version": 1, "profiles": {}, "usageStats": {}}
-data["profiles"]["openai:manual"] = {
-    "type": "api_key",
-    "provider": "openai",
-    "apiKey": "sk-proj-<YOUR_OPENAI_API_KEY>"
-}
-with open(path, "w") as f:
-    json.dump(data, f, indent=2)
-print("Done")
-EOF
-```
+For OAuth-style tokens use `paste-token` instead (supports `--expires-in`); `openclaw models auth add` is an interactive alternative that covers both cases. On 2026.6.x there is no supported file-level workaround for TTY-less registration: use a direct SSH session.
 
 ##### Step C - systemd drop-in to load the env file in the service
 
@@ -462,13 +448,13 @@ openclaw doctor
 openclaw gateway restart
 
 # Update OpenClaw and refresh service file
-npm update -g openclaw
+openclaw update            # or: npm update -g openclaw
 openclaw gateway install --force
 openclaw gateway restart
 
 # Update an existing API key: check the profile name first, then overwrite it
 openclaw models status   # find the profile name (e.g. anthropic:manual or anthropic:default)
-openclaw models auth paste-token --provider anthropic --profile-id <PROFILE_NAME>
+openclaw models auth paste-api-key --provider anthropic --profile-id <PROFILE_NAME>
 ```
 
 Live logs (run as admin with sudo):
@@ -499,7 +485,7 @@ sudo openclaw-provision.sh status
 | Service file outdated after update | `openclaw gateway status` shows warnings | Run `openclaw gateway install --force` via direct SSH as instance user |
 | Port already in use | `ss -tulpn \| grep <OC_PORT>` | Kill the process: `sudo kill $(sudo lsof -t -i :<OC_PORT>)` |
 | SSH tunnel won't connect | `ssh -v -L <OC_PORT>:localhost:<OC_PORT> <USER>@<IP_ADDRESS>` | Check service is running, port 22 is accessible |
-| API key rejected | `openclaw models status` via SSH as instance user | Check profile name with `openclaw models status`, then: `openclaw models auth paste-token --provider <PROVIDER> --profile-id <PROFILE_NAME>` |
+| API key rejected | `openclaw models status` via SSH as instance user | Check profile name with `openclaw models status`, then: `openclaw models auth paste-api-key --provider <PROVIDER> --profile-id <PROFILE_NAME>` |
 
 ## Checklist (per instance)
 
@@ -511,7 +497,7 @@ sudo openclaw-provision.sh status
 - [ ] Global dependencies installed (ffmpeg, gh, uv) - once per server
 - [ ] Per-user dependencies installed (@steipete/summarize)
 - [ ] `openclaw doctor` shows no missing requirements for enabled skills
-- [ ] (Optional) Memory search: env file created, key registered in credential store (`auth-profiles.json`), systemd drop-in in place
+- [ ] (Optional) Memory search: env file created, key registered in the credential store via `openclaw models auth`, systemd drop-in in place
 - [ ] Linger enabled: `loginctl show-user oc-<OC_NAME> | grep Linger` → `Linger=yes`
 - [ ] `openclaw gateway install` run via direct SSH as instance user
 - [ ] `openclaw gateway status` shows no warnings
