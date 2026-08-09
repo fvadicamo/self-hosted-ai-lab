@@ -38,15 +38,41 @@ packages:
 
 users:
   - name: <USER>
-    groups: [sudo]
+    # `adm` grants read access to the system journal and to /var/log files owned
+    # by root:adm. It is not extra privilege: this user already has passwordless
+    # sudo, so it can read those anyway. What it buys is that `journalctl -u <unit>`
+    # works without sudo — and, more importantly, that forgetting sudo produces an
+    # error instead of an empty result. Without `adm`, journalctl exits 0 and prints
+    # nothing, which reads as "nothing ever happened" rather than "I could not look".
+    #
+    # Why this has to be stated here at all: the Ubuntu *installer* puts the first
+    # user in `adm` automatically, cloud-init does not. So a workstation installed
+    # from ISO and a VPS provisioned from this template end up with different group
+    # sets for the same person — and the difference only shows up months later, as a
+    # diagnostic command that quietly returns nothing on some nodes and not others.
+    groups: [sudo, adm]
     shell: /bin/bash
     sudo: ['ALL=(ALL) NOPASSWD:ALL']
     lock_passwd: true
     ssh_authorized_keys:
       - <SSH_PUBLIC_KEY>
 
+# Make cloud-init itself declare key-only auth. Without this, cloud-init writes
+# /etc/ssh/sshd_config.d/50-cloud-init.conf containing `PasswordAuthentication yes`,
+# and that file WINS over the hardening drop-in below — see the comment there.
+ssh_pwauth: false
+
 write_files:
-  # SSH hardening drop-in (loaded last due to 99- prefix)
+  # SSH hardening drop-in.
+  #
+  # WARNING, and it is the opposite of the intuition: sshd_config does its
+  # `Include /etc/ssh/sshd_config.d/*.conf` near the TOP of the file, and for most
+  # keywords OpenSSH keeps the FIRST value it sees, not the last. So a drop-in does
+  # not "override" anything by sorting late — a 99- file LOSES to a 50- file.
+  # This one is safe only because `ssh_pwauth: false` above stops cloud-init from
+  # writing a conflicting 50-cloud-init.conf. Verify, never assume:
+  #   sudo sshd -T -C user=<USER>,host=example,addr=203.0.113.1 | grep -i passwordauth
+  # (`sshd -T` alone ignores Match blocks; `-C` resolves them.)
   - path: /etc/ssh/sshd_config.d/99-hardening.conf
     owner: root:root
     permissions: '0644'

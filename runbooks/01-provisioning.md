@@ -15,7 +15,7 @@ Automated server provisioning via cloud-init. After this runbook, you have a ser
 The template at [`templates/cloud-init.yaml`](../templates/cloud-init.yaml) automates:
 
 1. Sets hostname and timezone (Europe/Rome)
-2. Creates admin user with SSH key-only auth and passwordless sudo
+2. Creates admin user with SSH key-only auth, passwordless sudo, and membership of `adm` (log read access: see the note in the template — without it, `journalctl` without sudo returns empty and exits 0)
 3. Writes SSH hardening drop-in, Fail2Ban config, and auto-upgrade config
 4. Installs base packages + Docker CE from official repo
 5. Configures Docker log rotation (`daemon.json`)

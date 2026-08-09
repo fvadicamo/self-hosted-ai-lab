@@ -10,15 +10,41 @@ SSH hardening, Fail2Ban tuning, and dual-layer firewall architecture. This runbo
 
 ## SSH hardening - drop-in file
 
-The configuration uses OpenSSH 8.2+ drop-in mechanism: a file in `/etc/ssh/sshd_config.d/` instead of editing the main `sshd_config`. The `99-` prefix ensures it loads last and overrides defaults. This file is NOT overwritten by package upgrades.
+The configuration uses the OpenSSH 8.2+ drop-in mechanism: a file in `/etc/ssh/sshd_config.d/` instead of editing the main `sshd_config`. This file is NOT overwritten by package upgrades.
 
-### Verify current config
+> **A late prefix does not win — it loses.** This is the opposite of the usual
+> intuition, and getting it wrong is how a node ends up accepting password logins
+> while its config file says it does not.
+>
+> `sshd_config` performs its `Include /etc/ssh/sshd_config.d/*.conf` near the **top**
+> of the file, and for most keywords OpenSSH keeps the **first** value it encounters.
+> Drop-ins are read in lexicographic order, so `50-cloud-init.conf` is read before
+> `99-hardening.conf` and **wins**. On Ubuntu cloud images that 50- file commonly
+> contains `PasswordAuthentication yes`.
+>
+> Two consequences: set `ssh_pwauth: false` in cloud-init (the template does), and
+> **never conclude anything from reading the files**. Read the effective value.
+
+### Verify the effective config, not the file
 
 ```bash
-cat /etc/ssh/sshd_config.d/99-hardening.conf
+sudo sshd -T -C user=<USER>,host=example,addr=203.0.113.1 | grep -iE 'passwordauthentication|permitrootlogin|pubkeyauthentication'
 ```
 
-Verify: file exists with the settings below.
+Expected: `passwordauthentication no`, `permitrootlogin no`, `pubkeyauthentication yes`.
+
+`sshd -T` resolves includes; the `-C` connection spec also resolves `Match` blocks, which
+plain `sshd -T` silently ignores. A `grep` over `sshd_config` tells you what is written,
+which is a different question from what applies.
+
+If the effective value disagrees with your drop-in, find who wins:
+
+```bash
+sudo grep -rn 'PasswordAuthentication' /etc/ssh/sshd_config /etc/ssh/sshd_config.d/
+```
+
+Fix it in the file that is read **first**, then `sudo sshd -t` before `sudo systemctl reload ssh`
+(reload keeps existing sessions; restart does not).
 
 ### Apply manually (if not set by cloud-init)
 
@@ -54,7 +80,7 @@ sudo systemctl reload ssh
 ### Verify active config
 
 ```bash
-sudo sshd -T | grep -E 'permitrootlogin|passwordauthentication|pubkeyauthentication|allowusers|maxauthtries'
+sudo sshd -T -C user=<USER>,host=example,addr=203.0.113.1 | grep -E 'permitrootlogin|passwordauthentication|pubkeyauthentication|allowusers|maxauthtries'
 ```
 
 Verify: values match the table above.
@@ -217,13 +243,13 @@ ss -tuln
 sudo ufw status numbered
 
 # Verify SSH hardening is active
-sudo sshd -T | grep -i 'permitrootlogin\|passwordauth\|allowusers'
+sudo sshd -T -C user=<USER>,host=example,addr=203.0.113.1 | grep -i 'permitrootlogin\|passwordauth\|allowusers'
 ```
 
 ## Checklist
 
 - [ ] SSH drop-in file present and correct
-- [ ] `sshd -T` output matches expected values
+- [ ] `sshd -T -C ...` **effective** output matches expected values (not just the drop-in file contents)
 - [ ] Fail2Ban active with sshd jail
 - [ ] Fail2Ban parameters are 3600/600/3
 - [ ] UFW active with deny incoming default
