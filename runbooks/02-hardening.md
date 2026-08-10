@@ -145,6 +145,17 @@ Two independent firewalls with separate responsibilities:
 
 **Layer 2 - UFW (software level):** filters at server level. Defines which ports are open regardless of source. Defense in depth: even if the provider firewall is misconfigured, UFW blocks everything not explicitly allowed.
 
+> **The second layer has a hole, and it is worth knowing before you rely on it.** UFW does not
+> filter ports published by Docker containers with `-p`: that traffic is DNATed and takes the
+> FORWARD path, where Docker's chains are evaluated before UFW's. For those ports the dual layer
+> is really a single layer, the provider firewall, and the sentence above does not hold.
+>
+> Measured on one of the author's VPSes: three containers published on `0.0.0.0` (an automation
+> tool, a speech API, a headless browser) were unreachable from the internet **only** because the
+> provider firewall blocked them. One of them even carried a UFW rule restricting it to loopback,
+> which had never applied. Fix and verification method: `ai-ops` `07-conventions.md` § "Docker
+> bridge and UFW".
+
 ### Provider firewall rules
 
 Configure in your provider's console:
