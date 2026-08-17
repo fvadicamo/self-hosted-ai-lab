@@ -41,12 +41,35 @@ Create the firewall first. If you create it after the server, the server is expo
 2. Select your project
 3. Click **Add Server**
 4. **Location:** choose datacenter (Falkenstein FSN1 or Nuremberg NBG1 for EU)
-5. **Image:** Ubuntu 24.04
+5. **Image:** the Ubuntu LTS the console offers. You generally do not get to pick the
+   release: the wizard proposes the newest one. If you need a specific release, look for it
+   among the images rather than expecting it as the default.
 6. **Type:** choose from CAX series (ARM64) for best price/performance
 7. **Networking:** leave IPv4 and IPv6 enabled
 8. **SSH Keys:** select your uploaded key
 9. **Firewalls:** select the firewall created in Step 1
-10. **Cloud config:** paste your `cloud-init.yaml` in the **User data** field (see [templates/cloud-init.yaml](../templates/cloud-init.yaml))
+10. **Cloud config:** paste your `cloud-init.yaml` in the **User data** field (see [templates/cloud-init.yaml](../templates/cloud-init.yaml)).
+
+    **Copy it from the file, never from a terminal window.** Text that travels through a
+    terminal or a rendered view can be altered with nothing to show for it: long lines broken
+    by a wrap, quotes replaced with typographic ones, characters dropped by a selection. This
+    is not hypothetical -- it cost a machine in August 2026, and the failure was silent in the
+    worst way: cloud-init could not parse the payload, applied nothing, and reported
+    `status: done`, leaving the stock image exposed with password authentication on.
+
+    Verify the clipboard against the file before you create the server:
+
+    ```bash
+    # macOS
+    pbcopy < templates/cloud-init.yaml && pbpaste | md5
+    md5 templates/cloud-init.yaml
+    # Linux
+    xclip -selection clipboard < templates/cloud-init.yaml && xclip -o | md5sum
+    md5sum templates/cloud-init.yaml
+    ```
+
+    The two must match. cloud-init runs once, at first boot: there is no way to reapply it, so
+    a machine created from a corrupted paste has to be destroyed and recreated.
 11. **Name:** enter `<HOSTNAME>`
 12. Click **Create & Buy Now**
 
@@ -59,6 +82,21 @@ Create the firewall first. If you create it after the server, the server is expo
 | CAX31 | ARM64 | 8 | 16 GB | 160 GB | Heavy workloads, multiple services |
 
 > Note: ARM64 (Ampere Altra) is deliberately chosen - lower cost than x86 at equivalent performance. Docker supports ARM64 natively. Verify that all Docker images you plan to use are available for `linux/arm64`.
+
+**Two things to check in the console before planning around this table**, both observed in
+August 2026:
+
+- **The cost-optimized line, which is where CAX and CX live, is flagged "Limited
+  availability".** It is orderable, but stock varies by location, and the public pricing page
+  showed a "not available" badge on every size while the console still offered them. The
+  console is the authority; the marketing page is not. Limited availability is a
+  *provisioning* risk, not a runtime one -- a running server does not disappear -- and it bites
+  when you need to rebuild or add a machine in a hurry. For anything you must be able to
+  recreate on demand, prefer a line without that constraint.
+- **Prices are not quoted here on purpose.** They go stale, and the console and the public page
+  disagree: the console showed figures consistent with 19% German VAT, while the public page
+  quotes net. If you order with a VAT number in another EU country, reverse charge applies and
+  the net figures are the ones you pay. Read both, and treat the first invoice as the answer.
 
 ## Step 3 - Wait for provisioning
 

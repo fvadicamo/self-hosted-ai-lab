@@ -37,6 +37,29 @@ Expected: `passwordauthentication no`, `permitrootlogin no`, `pubkeyauthenticati
 plain `sshd -T` silently ignores. A `grep` over `sshd_config` tells you what is written,
 which is a different question from what applies.
 
+### And then verify the behaviour, not only the configuration
+
+`sshd -T` tells you how the server is configured. To know how it *behaves*, try to
+authenticate in the ways that must fail, from a client:
+
+```bash
+ssh -o ControlPath=none -o BatchMode=yes root@<IP>                      # must be refused
+ssh -o ControlPath=none -o BatchMode=yes <USER_NOT_IN_ALLOWUSERS>@<IP>  # must be refused
+ssh -o ControlPath=none -o PubkeyAuthentication=no -o IdentitiesOnly=yes \
+    -o PreferredAuthentications=password -o NumberOfPasswordPrompts=0 <USER>@<IP>  # must be refused
+ssh -o ControlPath=none <USER>@<IP> true                                # must succeed
+```
+
+**`-o ControlPath=none` is the part that makes these tests mean anything.** If your SSH client
+has connection multiplexing enabled -- `ControlMaster` with `ControlPersist`, common in shared
+configs -- every attempt after the first reuses the open master connection and **authenticates
+nothing**. The command succeeds, and "password authentication was refused" becomes
+indistinguishable from "password authentication went through". Measured: the same test
+reported a hardened machine as accepting passwords, until the multiplexing was disabled.
+
+The last line is not optional either: it is the control that proves the test can pass at all.
+Three refusals mean nothing if the fourth would have been refused too.
+
 If the effective value disagrees with your drop-in, find who wins:
 
 ```bash

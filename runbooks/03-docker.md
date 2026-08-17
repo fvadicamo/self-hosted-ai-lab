@@ -22,14 +22,14 @@ If Docker is installed, skip to Step 3.
 
 ## Step 2 - Install Docker (manual, if cloud-init failed)
 
-Precondition: Ubuntu 24.04 (`noble`).
+Precondition: a current Ubuntu LTS. The commands below do not assume a specific release.
 
 ```bash
 # Add Docker GPG key
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-# Add Docker repository (codename hardcoded to 'noble')
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu noble stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Add Docker repository (codename read from the system, see the note below)
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Install
 sudo apt-get update
@@ -43,7 +43,11 @@ sudo systemctl start docker
 sudo usermod -aG docker <USER>
 ```
 
-> Note: the codename `noble` is hardcoded (not using `lsb_release -cs`) to avoid issues when cloud-init doesn't have the full path. After running `usermod`, you need to re-login (or reboot) for the group to take effect. If `docker ps` gives "permission denied", run `newgrp docker` or reconnect.
+> Note: the codename is read by sourcing `/etc/os-release`, not with `lsb_release -cs`. The
+> reason for avoiding `lsb_release` stands -- it is an external binary and cloud-init does not
+> always have it on PATH -- but sourcing a file has neither problem, and unlike a hardcoded
+> value it survives the provider handing you a newer release. Verify Docker publishes for
+> your codename before relying on it: `curl -sI https://download.docker.com/linux/ubuntu/dists/$(. /etc/os-release && echo $VERSION_CODENAME)/Release`. After running `usermod`, you need to re-login (or reboot) for the group to take effect. If `docker ps` gives "permission denied", run `newgrp docker` or reconnect.
 
 Verify:
 

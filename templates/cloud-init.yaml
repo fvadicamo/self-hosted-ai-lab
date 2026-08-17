@@ -1,7 +1,7 @@
 #cloud-config
 
 # ============================================================
-# Self-hosted AI setup - Ubuntu 24.04 LTS
+# Self-hosted AI setup - current Ubuntu LTS (the release is not pinned: see the Docker note)
 # Replace all <PLACEHOLDER> values before use
 # ============================================================
 
@@ -113,9 +113,16 @@ write_files:
 
 runcmd:
   # --- Docker (official install) ---
-  # Codename hardcoded to 'noble' (Ubuntu 24.04 LTS)
+  # The codename is read from the system, NOT hardcoded. Providers hand you the newest
+  # Ubuntu and do not let you choose: a machine provisioned from this template came up as
+  # 26.04 and would have pulled Docker packages from the 24.04 repository forever.
+  # Sourcing /etc/os-release runs no external binary, so it does not have the PATH problem
+  # that made `lsb_release -cs` unusable here.
+  # Before trusting it on a brand-new release, check that Docker has published for it:
+  #   curl -sI https://download.docker.com/linux/ubuntu/dists/<codename>/Release
+  # A 404 means you must pin to the newest covered release -- deliberately, and knowing it.
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
   - apt-get update
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   - systemctl enable docker

@@ -55,12 +55,27 @@ Verify: you get a shell prompt on the remote server.
 ## Step 4 - Verify cloud-init status
 
 ```bash
+sudo cloud-init status --wait
 sudo cloud-init status --long
 ```
 
-Verify: output contains `status: done`.
+Verify: output contains **`extended_status: done`**.
 
-If `extended_status` shows `degraded done`, check which step failed:
+Read `extended_status`, not `status`. `status: done` means cloud-init finished its run, not
+that it did anything: if the user-data fails to parse, cloud-init logs
+`part-001: empty cloud config`, applies nothing, and still reports `status: done`. Measured on
+a real machine, which came up with the stock image, no configured users and password
+authentication enabled — while `cloud-init status` said `done`. A check that cannot fail is
+not a check.
+
+`--wait` comes first, and not for convenience: `extended_status` reports `degraded` mid-run on
+a perfectly healthy machine, because the provider's vendor-data uses deprecated keys and those
+count as recoverable errors. It clears once cloud-init has finished and the machine has
+rebooted. Read the verdict at the end of the run, or it will report failures that are not
+there.
+
+If `extended_status` shows `degraded done` after the run has finished, check which step
+failed:
 
 ```bash
 sudo cat /var/log/cloud-init-output.log | grep -i -E 'error|fail' | head -20

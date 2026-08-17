@@ -59,7 +59,9 @@ Domain name: EUR 1-10/year depending on TLD. Required for HTTPS.
 
 ## Requirements
 
-- A cloud server with **Ubuntu 24.04 LTS** (any provider with cloud-init support)
+- A cloud server with a **current Ubuntu LTS** (any provider with cloud-init support). You
+  will usually not get to choose: provider wizards offer the newest release, so the runbooks
+  avoid pinning one.
 - **SSH key pair** (ed25519 recommended)
 - A **domain name** (for HTTPS via Caddy)
 - **API keys** for your LLM provider (for OpenClaw)
@@ -111,7 +113,7 @@ Docker Compose files for Caddy and n8n are embedded directly in their respective
 
 ## Providers
 
-This guide is provider-agnostic. Any cloud provider with Ubuntu 24.04 and cloud-init support works. Provider-specific instructions (console walkthrough, firewall setup) are in [`providers/`](providers/).
+This guide is provider-agnostic. Any cloud provider with a current Ubuntu LTS and cloud-init support works. Provider-specific instructions (console walkthrough, firewall setup) are in [`providers/`](providers/).
 
 Currently documented:
 
@@ -126,7 +128,7 @@ Currently documented:
 | Container base dir | `/srv/docker/<service-name>/` |
 | Docker dir permissions | `root:docker`, `chmod 2770`, SGID |
 | Firewall | Dual layer: provider (network) + UFW (software) |
-| Ubuntu codename | `noble` (hardcoded, never use `lsb_release -cs`) |
+| Ubuntu codename | read from `/etc/os-release`, never hardcoded and never `lsb_release -cs` |
 | Placeholders | `<UPPER_CASE>` format throughout |
 | OpenClaw naming | `oc-<name>` prefix, ports `*789` (18789, 19789, ...) |
 
@@ -145,7 +147,7 @@ If you are an AI coding assistant executing these runbooks:
 ### Example prompt
 
 ```text
-Read the runbook 01-provisioning.md and execute all steps on a fresh Ubuntu 24.04 VPS.
+Read the runbook 01-provisioning.md and execute all steps on a fresh Ubuntu LTS VPS.
 Use "fra" as <USER> and "203.0.113.10" as <IP_ADDRESS>.
 Run each command, verify outputs match expected results, and report which steps
 succeeded and which need attention.
